@@ -135,7 +135,7 @@ def eval_genomes(genomes, config):
         text_3 = FONT.render(f'Genaration: {p.generation + 1}', True, (255, 255, 255))
         text_4 = FONT.render(f'High Score:  {HIGH_SCORE}', True, (255, 255, 255))
         
-        WIN.blit(text_1, (270, 25))
+        WIN.blit(text_1, (250, 25))
         WIN.blit(text_2, (290, 655))
         WIN.blit(text_3, (290, 675))
         WIN.blit(text_4, (290, 635))
@@ -290,8 +290,8 @@ def run_neat(config_path):
                          config_path)
     # if you want to load form a check point comment out this line
     p = neat.Population(config)
-    #and uncomment this lineand specify the checkpoint at the end
-    #p = neat.Checkpointer.restore_checkpoint('')
+    #and uncomment this line and specify the checkpoint at the end
+    #p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-21')
     p.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)

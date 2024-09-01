@@ -3,6 +3,7 @@ import sys
 import os
 import math
 import random as rd
+import neat
 
 
 pg.init()
@@ -17,9 +18,27 @@ WIN_HEIGHT = 500
 WIN = pg.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
 BG = pg.image.load("Assets/Other/Track.png")
+FONT = pg.font.Font('freesansbold.ttf', 20)
 
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
+
+high_score = 0
+
+bird1 = pg.image.load("Assets/Bird/Bird1.png").convert_alpha()
+bird2 = pg.image.load("Assets/Bird/Bird2.png").convert_alpha()
+
+# Define a scaling factor
+scaling_factor = 1.2  # Scale up by a factor of 2
+
+# Get the original dimensions of the images
+bird1_width, bird1_height = bird1.get_size()
+bird2_width, bird2_height = bird2.get_size()
+
+# Scale the images up
+bird1_scaled = pg.transform.scale(bird1, (bird1_width * scaling_factor, bird1_height * scaling_factor))
+bird2_scaled = pg.transform.scale(bird2, (bird2_width * scaling_factor, bird2_height * scaling_factor))
+
 
 DINO_IMAGES = {
             'Run1': pg.image.load("Assets/Dino/DinoRun1.png").convert_alpha(),
@@ -36,12 +55,11 @@ OBSTICAL_IMAGES = {
     'large_cactus1': pg.image.load(f"Assets/Cactus/LargeCactus1.png").convert_alpha(),
     'large_cactus2': pg.image.load(f"Assets/Cactus/LargeCactus2.png").convert_alpha(),
     'large_cactus3': pg.image.load(f"Assets/Cactus/LargeCactus3.png").convert_alpha(),
-    'bird1': pg.image.load(f"Assets/Bird/Bird1.png").convert_alpha(),
-    'bird2': pg.image.load(f"Assets/Bird/Bird2.png").convert_alpha()
-}
+    'bird1': bird1_scaled,
+    'bird2': bird2_scaled
+    }
 
-
-class dino():
+class Dino():
     def __init__(self) -> None:
         self.img = DINO_IMAGES['Run1']
         self.rect = self.img.get_rect(topleft=(100,280))
@@ -123,8 +141,8 @@ class dino():
             self.animate_dino_run(elapsed_time)
         self.gravity()
         self.draw()
+      
 
-        
 class cactus():
     def __init__(self, index, varient=1) -> None:
 
@@ -132,6 +150,7 @@ class cactus():
         self.off_screen = False
         self.bird = False
         self.last_update_time = 0
+        self.target = False
 
         match index:
             case 1: self.spawn_small(varient)
@@ -150,7 +169,7 @@ class cactus():
 
     def spawn_bird(self):
         self.img = OBSTICAL_IMAGES['bird1']
-        self.rect = self.img.get_rect(topleft=(980, 200))
+        self.rect = self.img.get_rect(topleft=(980, 210))
         self.mask = pg.mask.from_surface(self.img)
         self.bird = True
         self.loop = 1
@@ -186,15 +205,27 @@ class cactus():
         self.rect = self.img.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pg.mask.from_surface(self.img)
 
-DINOS = [dino()]
-OBSTICALS = [cactus(1)]
 
-def main_game():
-    
+def main_game(genomes, config):
+    global high_score
     run = True
     score = 0
     game_speed = 6
     start_time = pg.time.get_ticks()
+    DINOS = []
+    OBSTICALS = [cactus(3)]
+    
+
+    # neat stuff
+    ge = []
+    nets = []
+    
+    for genome_id, genome in genomes:
+        DINOS.append(Dino())
+        ge.append(genome)
+        net = net = neat.nn.FeedForwardNetwork.create(genome, config)
+        nets.append(net)
+        genome.fitness = 0
     
     
     
@@ -203,37 +234,26 @@ def main_game():
         elapsed_time = pg.time.get_ticks() - start_time
         pos = pg.mouse.get_pos()
         WIN.fill(WHITE)
-
-        bullet = pg.Surface((10, 10))
-        bullet.fill(RED)
-        bullet_mask = pg.mask.from_surface(bullet)
+        target_obstical = None
 
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
                 sys.exit()
-            
-            if event.type == pg.KEYUP:
-                if event.key == pg.K_DOWN:
-                    dino.stand_up()
-
-            
-        keys_pressed = pg.key.get_pressed()
-        for dino in DINOS:
-            if keys_pressed[pg.K_SPACE]: dino.jump()
-            if keys_pressed[pg.K_DOWN]: dino.duck(elapsed_time)
 
         # removes obsticals that are off screen and adds new ones
         for obstical in OBSTICALS:
             if obstical.rect.x < WIN_WIDTH//2 and not obstical.seen:
                 obstical.seen = True
-
+                
                 # randomly picks either a large or small cactus 
                 index = rd.randint(1,3)
 
                 # randomly chooses wich tyoe of large or small cactus
                 varient = rd.randint(1,3)
                 OBSTICALS.append(cactus(index, varient))
+
+            
 
             if obstical.rect.right < 10:
                 obstical.off_screen = True
@@ -242,38 +262,71 @@ def main_game():
         for obstical in OBSTICALS:
             if obstical.off_screen:
                 OBSTICALS.remove(obstical)
-                break
 
         
         # handles collsions between dinos and obsticals 
         for obstical in OBSTICALS:
-            for dino in DINOS:
-                if dino.mask.overlap(obstical.mask, (obstical.rect.x - dino.rect.x, obstical.rect.y - dino.rect.y)):
-                    #DINOS.remove(dino)
-                    if len(DINOS) == 0:
-                        pg.quit()
-                        sys.exit()
+                for i in reversed(range(len(DINOS))):  # Use reversed to avoid index shifting issues
+                    dino = DINOS[i]
+                    # makes it so that the object clostes to the dinos is the one that they are looking at 
+                    if len(OBSTICALS) == 1:
+                        OBSTICALS[0].target = True
+                    if obstical.rect.x < dino.rect.x:
+                        obstical.target = False
+                        OBSTICALS[1].target = True
+                    if obstical.target:
+                        target_obstical = obstical
 
+                # Check for collision between dino and obstacle
+                    if dino.mask.overlap(obstical.mask, (obstical.rect.x - dino.rect.x, obstical.rect.y - dino.rect.y)):
+                        # Collision detected: penalize fitness and remove the dino, its genome, and its network
+                        ge[i].fitness -= 1   
+                        
+                        # Remove the dino, genome, and network from their respective lists
+                        DINOS.pop(i)
+                        ge.pop(i)
+                        nets.pop(i)
+                        
         # increments the score and evry 100 points increses the game speed
         score += 0.1
         if round(score) % 100 == 0:
             if round(score) != round(score - 0.1):
-                game_speed += 1
+                game_speed += 1              
 
-        if DINOS[0].mask.overlap(bullet_mask, (pos[0] - DINOS[0].rect.x, pos[1] - DINOS[0].rect.y)):
-          print("hit")
+        if target_obstical:
+            for i, dino in enumerate(DINOS):
+                dis = distance(dino.rect.center, target_obstical.rect.center)
+            
+                output = nets[i].activate((dino.rect.x, dis, game_speed, score))
+                action = output.index(max(output))
 
-    
-        WIN.blit(bullet, pos)
+                # Determine action based on the highest output value
+                if action == 0:  # Jump
+                    dino.jump()
+                elif action == 1:  # Duck
+                    dino.duck(elapsed_time)
+                else:  # Stand up
+                    dino.stand_up()
 
-        #print(f"the score is {round(score)} the game speed is {game_speed}")
+        print(game_speed)
+        # shows stats
+        stats(round(score), len(DINOS), high_score)
         # controlls the background scroll
         bg_scroll(game_speed)
         # updates dinos
-        DINOS[0].update(elapsed_time)
+        for i, dino in enumerate(DINOS):
+            ge[i].fitness += 0.1
+            dino.update(elapsed_time)
+            visual(target_obstical, dino)
         # updates obsticals both birds and cacti
         for obstical in OBSTICALS:
             obstical.update(game_speed, elapsed_time)
+
+        # If no dinos remain, exit the loop
+        if len(DINOS) == 0:
+            if score > high_score:
+                high_score = round(score)
+            break
 
         # updates display
         pg.display.update()
@@ -292,7 +345,48 @@ def bg_scroll(game_speed):
         scroll = 0
 
 
+def stats(score, DINOS, high_score):
+        text_1 = FONT.render(f'Current Score: {str(score)}', True, RED)
+        text_2 = FONT.render(f'Dinos alive:  {DINOS}', True, RED)
+        text_3 = FONT.render(f'Genaration: {p.generation + 1}', True, RED)
+        text_4 = FONT.render(f'High Score:  {high_score}', True, RED)
+        
+        WIN.blit(text_1, (750, 25))
+        WIN.blit(text_2, (750, 50))
+        WIN.blit(text_3, (750, 75))
+        WIN.blit(text_4, (750, 100))
+
+
+def distance(point1, point2):
+    x1, y1 = point1
+    x2, y2 = point2
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+
+def visual(target_obstical, dino):
+        pg.draw.line(WIN, RED, (dino.rect.center), (target_obstical.rect.center))
+
+
+
+def run_neat(config_path):
+    global p
+    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction, 
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config_path)
+    # if you want to load form a check point comment out this line
+    p = neat.Population(config)
+    #and uncomment this line and specify the checkpoint at the end
+    #p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-21')
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(2))
+    p.run(main_game)
+
+
 if __name__ == "__main__":
-    main_game()
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, 'dino2_config.txt')
+    run_neat(config_path)
 
 

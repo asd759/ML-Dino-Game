@@ -21,6 +21,21 @@ BG = pg.image.load("Assets/Other/Track.png")
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
+bird1 = pg.image.load("Assets/Bird/Bird1.png").convert_alpha()
+bird2 = pg.image.load("Assets/Bird/Bird2.png").convert_alpha()
+
+# Define a scaling factor
+scaling_factor = 1.2  # Scale up by a factor of 2
+
+# Get the original dimensions of the images
+bird1_width, bird1_height = bird1.get_size()
+bird2_width, bird2_height = bird2.get_size()
+
+# Scale the images up
+bird1_scaled = pg.transform.scale(bird1, (bird1_width * scaling_factor, bird1_height * scaling_factor))
+bird2_scaled = pg.transform.scale(bird2, (bird2_width * scaling_factor, bird2_height * scaling_factor))
+
+
 DINO_IMAGES = {
             'Run1': pg.image.load("Assets/Dino/DinoRun1.png").convert_alpha(),
             'Run2': pg.image.load("Assets/Dino/DinoRun2.png").convert_alpha(),
@@ -36,8 +51,8 @@ OBSTICAL_IMAGES = {
     'large_cactus1': pg.image.load(f"Assets/Cactus/LargeCactus1.png").convert_alpha(),
     'large_cactus2': pg.image.load(f"Assets/Cactus/LargeCactus2.png").convert_alpha(),
     'large_cactus3': pg.image.load(f"Assets/Cactus/LargeCactus3.png").convert_alpha(),
-    'bird1': pg.image.load(f"Assets/Bird/Bird1.png").convert_alpha(),
-    'bird2': pg.image.load(f"Assets/Bird/Bird2.png").convert_alpha()
+    'bird1': bird1_scaled,
+    'bird2': bird2_scaled
 }
 
 
@@ -150,7 +165,7 @@ class cactus():
 
     def spawn_bird(self):
         self.img = OBSTICAL_IMAGES['bird1']
-        self.rect = self.img.get_rect(topleft=(980, 200))
+        self.rect = self.img.get_rect(topleft=(980, 210))
         self.mask = pg.mask.from_surface(self.img)
         self.bird = True
         self.loop = 1
@@ -159,7 +174,7 @@ class cactus():
         WIN.blit(self.img, self.rect)
 
     def animate_bird(self, elapsed_time):
-            if elapsed_time - self.last_update_time > 300:
+            if elapsed_time - self.last_update_time > 400:
                 self.last_update_time = elapsed_time
                 if self.loop == 1:
                     self.set_mask('bird1')
@@ -187,7 +202,7 @@ class cactus():
         self.mask = pg.mask.from_surface(self.img)
 
 DINOS = [dino()]
-OBSTICALS = [cactus(1)]
+OBSTICALS = [cactus(3)]
 
 def main_game():
     
@@ -250,6 +265,7 @@ def main_game():
             for dino in DINOS:
                 if dino.mask.overlap(obstical.mask, (obstical.rect.x - dino.rect.x, obstical.rect.y - dino.rect.y)):
                     # DINOS.remove(dino)
+                    print('hit')
                     if len(DINOS) == 0:
                         pg.quit()
                         sys.exit()

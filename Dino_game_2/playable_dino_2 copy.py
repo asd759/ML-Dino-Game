@@ -249,7 +249,7 @@ def main_game():
         for obstical in OBSTICALS:
             for dino in DINOS:
                 if dino.mask.overlap(obstical.mask, (obstical.rect.x - dino.rect.x, obstical.rect.y - dino.rect.y)):
-                    #DINOS.remove(dino)
+                    # DINOS.remove(dino)
                     if len(DINOS) == 0:
                         pg.quit()
                         sys.exit()

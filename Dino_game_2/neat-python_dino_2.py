@@ -200,6 +200,13 @@ class cactus():
             self.draw()
             self.move(game_speed)
 
+    def is_bird(self):
+        if self.bird:
+            return True
+        else:
+            return False
+
+
     def set_mask(self, img_key):
         self.img = OBSTICAL_IMAGES[img_key]
         self.rect = self.img.get_rect(topleft=(self.rect.x, self.rect.y))
@@ -297,7 +304,7 @@ def main_game(genomes, config):
             for i, dino in enumerate(DINOS):
                 dis = distance(dino.rect.center, target_obstical.rect.center)
             
-                output = nets[i].activate((dino.rect.x, dis, game_speed, score))
+                output = nets[i].activate((dino.rect.x, dis, game_speed, score, target_obstical.rect.y, target_obstical.rect.width, target_obstical.rect.height, target_obstical.is_bird()))
                 action = output.index(max(output))
 
                 # Determine action based on the highest output value
@@ -308,14 +315,19 @@ def main_game(genomes, config):
                 else:  # Stand up
                     dino.stand_up()
 
-        print(game_speed)
         # shows stats
         stats(round(score), len(DINOS), high_score)
         # controlls the background scroll
         bg_scroll(game_speed)
         # updates dinos
         for i, dino in enumerate(DINOS):
-            ge[i].fitness += 0.1
+            if target_obstical.is_bird() and action == 1:
+                ge[i].fitness += 1
+            elif action == 1:
+                ge[i].fitness -= 0.1
+
+
+            ge[i].fitness += 0.01
             dino.update(elapsed_time)
             visual(target_obstical, dino)
         # updates obsticals both birds and cacti

@@ -326,7 +326,6 @@ def main_game(genomes, config):
             elif action == 1:
                 ge[i].fitness -= 0.1
 
-
             ge[i].fitness += 0.01
             dino.update(elapsed_time)
             visual(target_obstical, dino)
